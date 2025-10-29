@@ -1,30 +1,35 @@
-project('wl-idle-lock', 'c',
-  version: '0.1.0',
-  default_options: ['warning_level=3', 'c_std=c11'])
+project('wl-idle-lock', 'cpp',
+  version: '1.0.0',
+  default_options: ['cpp_std=cpp17', 'warning_level=2', 'optimization=2']
+)
 
-wayland = dependency('wayland-client')
-wayland_protos = dependency('wayland-protocols', version: '>=1.31')
-wayland_scanner = find_program('wayland-scanner')
+wayland_dep = dependency('wayland-client')
+wayland_protocols = dependency('wayland-protocols', version: '>=1.25')
+wayland_scanner = find_program('wayland-scanner', required: true)
 
-protocols_dir = join_paths(meson.current_source_dir(), 'src/protocols')
+protocols_dir = join_paths(meson.source_root(), 'src', 'protocols')
+xml_proto = join_paths(protocols_dir, 'ext-idle-notify-v1.xml')
 
-# Generar archivos del protocolo Wayland
-ext_idle_client_c = custom_target('ext-idle-protocol-c',
-  input: join_paths(protocols_dir, 'ext-idle-notify-v1.xml'),
+# generar archivo .c (private-code) y header (client-header)
+ext_idle_c = custom_target('ext-idle-notify-v1-c',
+  input: xml_proto,
   output: 'ext-idle-notify-v1-protocol.c',
-  command: [wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
+  command: [ wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@' ]
+)
 
-ext_idle_client_h = custom_target('ext-idle-protocol-h',
-  input: join_paths(protocols_dir, 'ext-idle-notify-v1.xml'),
+ext_idle_h = custom_target('ext-idle-notify-v1-h',
+  input: xml_proto,
   output: 'ext-idle-notify-v1-client-protocol.h',
-  command: [wayland_scanner, 'client-header', '@INPUT@', '@OUTPUT@'])
+  command: [ wayland_scanner, 'client-header', '@INPUT@', '@OUTPUT@' ]
+)
 
-# Ejecutable principal
 executable('wl-idle-lock',
   sources: [
-    'src/main.c',
-    ext_idle_client_c,
-    ext_idle_client_h
+    'src/main.cpp',
+    ext_idle_c,
+    ext_idle_h
   ],
   include_directories: include_directories('src'),
-  dependencies: [wayland])
+  dependencies: [ wayland_dep, wayland_protocols ],
+  install: true
+)
