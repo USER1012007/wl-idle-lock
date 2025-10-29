@@ -1,5 +1,5 @@
 {
-  description = "wl-idle-lock — simple Wayland idle locker using ext-idle-notify-v1";
+  description = "wl-idle-lock — Wayland idle locker (C++ version)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -11,14 +11,10 @@
       let
         pkgs = import nixpkgs { inherit system; };
       in {
-        # ========================================
-        # Package: wl-idle-lock
-        # ========================================
         packages.default = pkgs.stdenv.mkDerivation {
           pname = "wl-idle-lock";
           version = "1.0.0";
 
-          # Raíz del proyecto, meson.build debe estar aquí
           src = ./.;
           unpackPhase = ":";
 
@@ -27,6 +23,7 @@
             ninja
             pkg-config
             wayland-scanner
+            gcc
           ];
 
           buildInputs = with pkgs; [
@@ -34,47 +31,39 @@
             wayland-protocols
           ];
 
-          # Fases de build explícitas para Git tree sucio
           buildPhase = ''
+            echo "==> Meson setup"
             meson setup build --buildtype=release --prefix=$out
+            echo "==> ninja build"
             ninja -C build
           '';
 
+          installPhase = ''
+            echo "==> instalando binario en $out/bin"
+            mkdir -p $out/bin
+            cp build/wl-idle-lock $out/bin/
+          '';
+
           meta = with pkgs.lib; {
-            description = "Wayland idle locker using ext-idle-notify-v1";
-            homepage = "https://github.com/emilio/wl-idle-lock";
+            description = "Wayland idle locker using ext-idle-notify-v1 (C++ rewrite)";
             license = licenses.mit;
             platforms = platforms.linux;
           };
         };
 
-        # ========================================
-        # DevShell para desarrollo
-        # ========================================
         devShells.default = pkgs.mkShell {
-          buildInputs = [
-            pkgs.meson
-            pkgs.ninja
-            pkgs.wayland
-            pkgs.wayland-protocols
-            pkgs.wayland-scanner
-            pkgs.pkg-config
-            pkgs.clang
-            pkgs.gdb
+          buildInputs = with pkgs; [
+            meson ninja wayland wayland-protocols wayland-scanner pkg-config gcc gdb
           ];
-
           shellHook = ''
-            echo "wl-idle-lock devShell listo"
-            echo "Ejecuta: meson setup build && meson compile -C build"
+            echo "wl-idle-lock devShell ready"
+            echo "Usa: meson setup build && meson compile -C build"
           '';
         };
 
-        # ========================================
-        # App ejecutable directo con nix run
-        # ========================================
-        apps.default = flake-utils.lib.mkApp {
-          drv = self.packages.${system}.default;
-          name = "wl-idle-lock";
+        apps.default = {
+          type = "app";
+          program = "${self.packages.${system}.default}/bin/wl-idle-lock";
         };
       });
 }
